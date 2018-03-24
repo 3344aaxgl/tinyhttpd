@@ -1587,21 +1587,21 @@ handle_read( connecttab* c, struct timeval* tvP )
 	if ( hc->read_size > 5000 )
 	    {
 	    httpd_send_err( hc, 400, httpd_err400title, "", httpd_err400form, "" );
-	    finish_connection( c, tvP );
+	    finish_connection( c, tvP );//发送400页面，清除链接
 	    return;
 	    }
 	httpd_realloc_str(
-	    &hc->read_buf, &hc->read_size, hc->read_size + 1000 );
+	    &hc->read_buf, &hc->read_size, hc->read_size + 1000 );//重新申请新空间
 	}
 
     /* Read some more bytes. */
     sz = read(
 	hc->conn_fd, &(hc->read_buf[hc->read_idx]),
-	hc->read_size - hc->read_idx );
-    if ( sz == 0 )
+	hc->read_size - hc->read_idx );//读入到以idx为下标的空间中，剪掉当前已有数据的长度，得到要读取的个数
+    if ( sz == 0 )//无数据
 	{
 	httpd_send_err( hc, 400, httpd_err400title, "", httpd_err400form, "" );
-	finish_connection( c, tvP );
+	finish_connection( c, tvP );//发送400页面，清除链接
 	return;
 	}
     if ( sz < 0 )
@@ -1611,29 +1611,29 @@ handle_read( connecttab* c, struct timeval* tvP )
 	** should never give an EWOULDBLOCK; however, this apparently can
 	** happen if a packet gets garbled.
 	*/
-	if ( errno == EINTR || errno == EAGAIN || errno == EWOULDBLOCK )
+	if ( errno == EINTR || errno == EAGAIN || errno == EWOULDBLOCK )//报文混乱引起
 	    return;
 	httpd_send_err(
 	    hc, 400, httpd_err400title, "", httpd_err400form, "" );
-	finish_connection( c, tvP );
+	finish_connection( c, tvP );//发送400页面，清除链接
 	return;
 	}
-    hc->read_idx += sz;
-    c->active_at = tvP->tv_sec;
+    hc->read_idx += sz;//记录当前数据存储的下标
+    c->active_at = tvP->tv_sec;//记录时间
 
     /* Do we have a complete request yet? */
-    switch ( httpd_got_request( hc ) )
+    switch ( httpd_got_request( hc ) ) //判断是否接收到一个完整的http请求
 	{
 	case GR_NO_REQUEST:
 	return;
 	case GR_BAD_REQUEST:
 	httpd_send_err( hc, 400, httpd_err400title, "", httpd_err400form, "" );
-	finish_connection( c, tvP );
+	finish_connection( c, tvP );//发送400页面，清除链接
 	return;
 	}
 
     /* Yes.  Try parsing and resolving it. */
-    if ( httpd_parse_request( hc ) < 0 )
+    if ( httpd_parse_request( hc ) < 0 )//解析链接
 	{
 	finish_connection( c, tvP );
 	return;
@@ -1977,7 +1977,7 @@ static void
 finish_connection( connecttab* c, struct timeval* tvP )
     {
     /* If we haven't actually sent the buffered response yet, do so now. */
-    httpd_write_response( c->hc );
+    httpd_write_response( c->hc );//发送数据
 
     /* And clear. */
     clear_connection( c, tvP );

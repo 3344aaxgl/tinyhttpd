@@ -574,7 +574,7 @@ httpd_write_response( httpd_conn* hc )
     /* Send the response, if necessary. */
     if ( hc->responselen > 0 )
 	{
-	(void) httpd_write_fully( hc->conn_fd, hc->response, hc->responselen );
+	(void) httpd_write_fully( hc->conn_fd, hc->response, hc->responselen );//数据发送
 	hc->responselen = 0;
 	}
     }
@@ -582,15 +582,15 @@ httpd_write_response( httpd_conn* hc )
 
 /* Set no-delay / non-blocking mode on a socket. */
 void
-httpd_set_ndelay( int fd )
+httpd_set_ndelay( int fd )//设置非阻塞模式
     {
     int flags, newflags;
 
-    flags = fcntl( fd, F_GETFL, 0 );
+    flags = fcntl( fd, F_GETFL, 0 );//取得现有模式
     if ( flags != -1 )
 	{
-	newflags = flags | (int) O_NDELAY;
-	if ( newflags != flags )
+	newflags = flags | (int) O_NDELAY;//得到新模式
+	if ( newflags != flags )//设置非阻塞模式
 	    (void) fcntl( fd, F_SETFL, newflags );
 	}
     }
@@ -1223,9 +1223,9 @@ httpd_method_str( int method )
 static int
 hexit( char c )
     {
-    if ( c >= '0' && c <= '9' )
+    if ( c >= '0' && c <= '9' )//数字
 	return c - '0';
-    if ( c >= 'a' && c <= 'f' )
+    if ( c >= 'a' && c <= 'f' )//字母
 	return c - 'a' + 10;
     if ( c >= 'A' && c <= 'F' )
 	return c - 'A' + 10;
@@ -1241,13 +1241,13 @@ strdecode( char* to, char* from )
     {
     for ( ; *from != '\0'; ++to, ++from )
 	{
-	if ( from[0] == '%' && isxdigit( from[1] ) && isxdigit( from[2] ) )
+	if ( from[0] == '%' && isxdigit( from[1] ) && isxdigit( from[2] ) )//以％开头且接下来两位是16进制数字
 	    {
-	    *to = hexit( from[1] ) * 16 + hexit( from[2] );
+	    *to = hexit( from[1] ) * 16 + hexit( from[2] );//转成十进制　　
 	    from += 2;
 	    }
 	else
-	    *to = *from;
+	    *to = *from;//复制到to
 	}
     *to = '\0';
     }
@@ -1793,7 +1793,7 @@ httpd_get_conn( httpd_server* hs, int listen_fd, httpd_conn* hc )//创建连接�
 ** finite state machine.
 */
 int
-httpd_got_request( httpd_conn* hc )
+httpd_got_request( httpd_conn* hc )//检测是否为一个正常的http请求 https://blog.csdn.net/holmofy/article/details/68492045
     {
     char c;
 
@@ -1805,24 +1805,24 @@ httpd_got_request( httpd_conn* hc )
 	    case CHST_FIRSTWORD:
 	    switch ( c )
 		{
-		case ' ': case '\t':
+		case ' ': case '\t'://空格，状态设置为第一个字
 		hc->checked_state = CHST_FIRSTWS;
 		break;
-		case '\012': case '\015':
+		case '\012': case '\015': //换行或者回车
 		hc->checked_state = CHST_BOGUS;
 		return GR_BAD_REQUEST;
 		}
 	    break;
-	    case CHST_FIRSTWS:
+	    case CHST_FIRSTWS: //第一个字段正常
 	    switch ( c )
 		{
 		case ' ': case '\t':
 		break;
 		case '\012': case '\015':
-		hc->checked_state = CHST_BOGUS;
+		hc->checked_state = CHST_BOGUS;//只有一个字段
 		return GR_BAD_REQUEST;
 		default:
-		hc->checked_state = CHST_SECONDWORD;
+		hc->checked_state = CHST_SECONDWORD;//第二个字段
 		break;
 		}
 	    break;
@@ -1834,7 +1834,7 @@ httpd_got_request( httpd_conn* hc )
 		break;
 		case '\012': case '\015':
 		/* The first line has only two words - an HTTP/0.9 request. */
-		return GR_GOT_REQUEST;
+		return GR_GOT_REQUEST;// http/0.9 请求行只有两个字段
 		}
 	    break;
 	    case CHST_SECONDWS:
@@ -1843,7 +1843,7 @@ httpd_got_request( httpd_conn* hc )
 		case ' ': case '\t':
 		break;
 		case '\012': case '\015':
-		hc->checked_state = CHST_BOGUS;
+		hc->checked_state = CHST_BOGUS;//只有两个字段
 		return GR_BAD_REQUEST;
 		default:
 		hc->checked_state = CHST_THIRDWORD;
@@ -1854,13 +1854,13 @@ httpd_got_request( httpd_conn* hc )
 	    switch ( c )
 		{
 		case ' ': case '\t':
-		hc->checked_state = CHST_THIRDWS;
+		hc->checked_state = CHST_THIRDWS;//第三个字段后仍有空格
 		break;
 		case '\012':
-		hc->checked_state = CHST_LF;
+		hc->checked_state = CHST_LF;//\n字符
 		break;
 		case '\015':
-		hc->checked_state = CHST_CR;
+		hc->checked_state = CHST_CR;//\r字符
 		break;
 		}
 	    break;
@@ -1868,15 +1868,15 @@ httpd_got_request( httpd_conn* hc )
 	    switch ( c )
 		{
 		case ' ': case '\t':
-		break;
+		break;//跳过空格
 		case '\012':
-		hc->checked_state = CHST_LF;
+		hc->checked_state = CHST_LF;//\n
 		break;
 		case '\015':
-		hc->checked_state = CHST_CR;
+		hc->checked_state = CHST_CR;//\r
 		break;
 		default:
-		hc->checked_state = CHST_BOGUS;
+		hc->checked_state = CHST_BOGUS;//
 		return GR_BAD_REQUEST;
 		}
 	    break;
@@ -1896,12 +1896,12 @@ httpd_got_request( httpd_conn* hc )
 		{
 		case '\012':
 		/* Two newlines in a row - a blank line - end of request. */
-		return GR_GOT_REQUEST;
+		return GR_GOT_REQUEST;//两个\n
 		case '\015':
-		hc->checked_state = CHST_CR;
+		hc->checked_state = CHST_CR;//\r
 		break;
 		default:
-		hc->checked_state = CHST_LINE;
+		hc->checked_state = CHST_LINE;//另一行
 		break;
 		}
 	    break;
@@ -1909,38 +1909,38 @@ httpd_got_request( httpd_conn* hc )
 	    switch ( c )
 		{
 		case '\012':
-		hc->checked_state = CHST_CRLF;
+		hc->checked_state = CHST_CRLF;//\r\n
 		break;
-		case '\015':
+		case '\015'://\r\r
 		/* Two returns in a row - end of request. */
 		return GR_GOT_REQUEST;
 		default:
-		hc->checked_state = CHST_LINE;
+		hc->checked_state = CHST_LINE;//新的一行
 		break;
 		}
 	    break;
-	    case CHST_CRLF:
+	    case CHST_CRLF://\r\n
 	    switch ( c )
 		{
 		case '\012':
 		/* Two newlines in a row - end of request. */
-		return GR_GOT_REQUEST;
+		return GR_GOT_REQUEST;//\r\n\n
 		case '\015':
-		hc->checked_state = CHST_CRLFCR;
+		hc->checked_state = CHST_CRLFCR;//\r\n\r
 		break;
 		default:
-		hc->checked_state = CHST_LINE;
+		hc->checked_state = CHST_LINE;//新的一行
 		break;
 		}
 	    break;
-	    case CHST_CRLFCR:
+	    case CHST_CRLFCR://\r\n\r
 	    switch ( c )
 		{
-		case '\012': case '\015':
+		case '\012': case '\015'://\r\n\r\n或\r\n\r\r
 		/* Two CRLFs or two CRs in a row - end of request. */
 		return GR_GOT_REQUEST;
 		default:
-		hc->checked_state = CHST_LINE;
+		hc->checked_state = CHST_LINE;//新的一行
 		break;
 		}
 	    break;
@@ -1965,16 +1965,16 @@ httpd_parse_request( httpd_conn* hc )
     char* pi;
 
     hc->checked_idx = 0;	/* reset */
-    method_str = bufgets( hc );
-    url = strpbrk( method_str, " \t\012\015" );
+    method_str = bufgets( hc );//得到请求行
+    url = strpbrk( method_str, " \t\012\015" );//在源字符串（s1）中找出最先含有搜索字符串（s2）中任一字符的位置并返回，若找不到则返回空指针
     if ( url == (char*) 0 )
 	{
 	httpd_send_err( hc, 400, httpd_err400title, "", httpd_err400form, "" );
 	return -1;
 	}
-    *url++ = '\0';
-    url += strspn( url, " \t\012\015" );
-    protocol = strpbrk( url, " \t\012\015" );
+    *url++ = '\0';//先置0，然后自增，得到请求方法
+    url += strspn( url, " \t\012\015" );//返回字符串中第一个不在指定字符串中出现的字符下标，得到请求链接
+    protocol = strpbrk( url, " \t\012\015" );//0.9版本只有两个字段
     if ( protocol == (char*) 0 )
 	{
 	protocol = "HTTP/0.9";
@@ -1983,13 +1983,13 @@ httpd_parse_request( httpd_conn* hc )
     else
 	{
 	*protocol++ = '\0';
-	protocol += strspn( protocol, " \t\012\015" );
+	protocol += strspn( protocol, " \t\012\015" );//得到协议版本
 	if ( *protocol != '\0' )
 	    {
 	    eol = strpbrk( protocol, " \t\012\015" );
 	    if ( eol != (char*) 0 )
 		*eol = '\0';
-	    if ( strcasecmp( protocol, "HTTP/1.0" ) != 0 )
+	    if ( strcasecmp( protocol, "HTTP/1.0" ) != 0 )//不是1.0版本
 		hc->one_one = 1;
 	    }
 	}
@@ -1998,25 +1998,25 @@ httpd_parse_request( httpd_conn* hc )
     /* Check for HTTP/1.1 absolute URL. */
     if ( strncasecmp( url, "http://", 7 ) == 0 )
 	{
-	if ( ! hc->one_one )
+	if ( ! hc->one_one )//不是http/1.1
 	    {
 	    httpd_send_err( hc, 400, httpd_err400title, "", httpd_err400form, "" );
 	    return -1;
 	    }
 	reqhost = url + 7;
 	url = strchr( reqhost, '/' );
-	if ( url == (char*) 0 )
+	if ( url == (char*) 0 )//没有/  url以/结尾
 	    {
 	    httpd_send_err( hc, 400, httpd_err400title, "", httpd_err400form, "" );
 	    return -1;
 	    }
 	*url = '\0';
-	if ( strchr( reqhost, '/' ) != (char*) 0 || reqhost[0] == '.' )
+	if ( strchr( reqhost, '/' ) != (char*) 0 || reqhost[0] == '.' )//如果还有/或者以.开头
 	    {
 	    httpd_send_err( hc, 400, httpd_err400title, "", httpd_err400form, "" );
 	    return -1;
 	    }
-	httpd_realloc_str( &hc->reqhost, &hc->maxreqhost, strlen( reqhost ) );
+	httpd_realloc_str( &hc->reqhost, &hc->maxreqhost, strlen( reqhost ) );//重新分配空间存储亲求链接
 	(void) strcpy( hc->reqhost, reqhost );
 	*url = '/';
 	}
@@ -2027,7 +2027,7 @@ httpd_parse_request( httpd_conn* hc )
 	return -1;
 	}
 
-    if ( strcasecmp( method_str, httpd_method_str( METHOD_GET ) ) == 0 )
+    if ( strcasecmp( method_str, httpd_method_str( METHOD_GET ) ) == 0 )//确定请求方法
 	hc->method = METHOD_GET;
     else if ( strcasecmp( method_str, httpd_method_str( METHOD_HEAD ) ) == 0 )
 	hc->method = METHOD_HEAD;
@@ -2035,24 +2035,24 @@ httpd_parse_request( httpd_conn* hc )
 	hc->method = METHOD_POST;
     else
 	{
-	httpd_send_err( hc, 501, err501title, "", err501form, method_str );
+	httpd_send_err( hc, 501, err501title, "", err501form, method_str );//不支持的方法
 	return -1;
 	}
 
     hc->encodedurl = url;
     httpd_realloc_str(
 	&hc->decodedurl, &hc->maxdecodedurl, strlen( hc->encodedurl ) );
-    strdecode( hc->decodedurl, hc->encodedurl );
+    strdecode( hc->decodedurl, hc->encodedurl );//解码剩余的url
 
     httpd_realloc_str(
 	&hc->origfilename, &hc->maxorigfilename, strlen( hc->decodedurl ) );
-    (void) strcpy( hc->origfilename, &hc->decodedurl[1] );
+    (void) strcpy( hc->origfilename, &hc->decodedurl[1] );//复制解码后的url
     /* Special case for top-level URL. */
-    if ( hc->origfilename[0] == '\0' )
+    if ( hc->origfilename[0] == '\0' )//解码为0
 	(void) strcpy( hc->origfilename, "." );
 
     /* Extract query string from encoded URL. */
-    cp = strchr( hc->encodedurl, '?' );
+    cp = strchr( hc->encodedurl, '?' );//
     if ( cp != (char*) 0 )
 	{
 	++cp;
@@ -2398,17 +2398,17 @@ bufgets( httpd_conn* hc )
     for ( i = hc->checked_idx; hc->checked_idx < hc->read_idx; ++hc->checked_idx )
 	{
 	c = hc->read_buf[hc->checked_idx];
-	if ( c == '\012' || c == '\015' )
+	if ( c == '\012' || c == '\015' )//为\r或者\n
 	    {
-	    hc->read_buf[hc->checked_idx] = '\0';
+	    hc->read_buf[hc->checked_idx] = '\0';//替换成0
 	    ++hc->checked_idx;
 	    if ( c == '\015' && hc->checked_idx < hc->read_idx &&
-		 hc->read_buf[hc->checked_idx] == '\012' )
+		 hc->read_buf[hc->checked_idx] == '\012' )//\r\n
 		{
-		hc->read_buf[hc->checked_idx] = '\0';
+		hc->read_buf[hc->checked_idx] = '\0';//替换成0
 		++hc->checked_idx;
 		}
-	    return &(hc->read_buf[i]);
+	    return &(hc->read_buf[i]);//得到第一行
 	    }
 	}
     return (char*) 0;
@@ -4253,14 +4253,14 @@ httpd_write_fully( int fd, const char* buf, size_t nbytes )
     int nwritten;
 
     nwritten = 0;
-    while ( nwritten < nbytes )
+    while ( nwritten < nbytes )//循环发送数据
 	{
 	int r;
 
 	r = write( fd, buf + nwritten, nbytes - nwritten );//循环发送数据
 	if ( r < 0 && ( errno == EINTR || errno == EAGAIN ) )
 	    {
-	    sleep( 1 );
+	    sleep( 1 );//等会在试一次
 	    continue;
 	    }
 	if ( r < 0 )
