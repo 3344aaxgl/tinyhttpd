@@ -1,6 +1,6 @@
 /* libhttpd.c - HTTP protocol library
 **
-** Copyright � 1995,1998,1999,2000,2001,2015 by
+** Copyright � 1995,1998,1999,2000,2001,2015 by
 ** Jef Poskanzer <jef@mail.acme.com>. All rights reserved.
 **
 ** Redistribution and use in source and binary forms, with or without
@@ -238,7 +238,7 @@ httpd_initialize(
 
     check_options();
 
-    hs = NEW( httpd_server, 1 );
+    hs = NEW( httpd_server, 1 );/*为http_server分配空间*/
     if ( hs == (httpd_server*) 0 )
 	{
 	syslog( LOG_CRIT, "out of memory allocating an httpd_server" );
@@ -247,7 +247,7 @@ httpd_initialize(
 
     if ( hostname != (char*) 0 )
 	{
-	hs->binding_hostname = strdup( hostname );
+	hs->binding_hostname = strdup( hostname );/*strdup会自动分配空间，需要手动释放*/
 	if ( hs->binding_hostname == (char*) 0 )
 	    {
 	    syslog( LOG_CRIT, "out of memory copying hostname" );
@@ -259,19 +259,19 @@ httpd_initialize(
 	{
 	hs->binding_hostname = (char*) 0;
 	hs->server_hostname = (char*) 0;
-	if ( gethostname( ghnbuf, sizeof(ghnbuf) ) < 0 )
+	if ( gethostname( ghnbuf, sizeof(ghnbuf) ) < 0 )/*没有传递，则获取*/
 	    ghnbuf[0] = '\0';
 #ifdef SERVER_NAME_LIST
 	if ( ghnbuf[0] != '\0' )
-	    hs->server_hostname = hostname_map( ghnbuf );
+	    hs->server_hostname = hostname_map( ghnbuf );/*优先从SERVER_NAME_LIST中匹配*/
 #endif /* SERVER_NAME_LIST */
 	if ( hs->server_hostname == (char*) 0 )
 	    {
 #ifdef SERVER_NAME
-	    hs->server_hostname = SERVER_NAME;
+	    hs->server_hostname = SERVER_NAME;/*取配置的值*/
 #else /* SERVER_NAME */
 	    if ( ghnbuf[0] != '\0' )
-		hs->server_hostname = ghnbuf;
+		hs->server_hostname = ghnbuf;/*取主机名*/
 #endif /* SERVER_NAME */
 	    }
 	}
@@ -282,7 +282,7 @@ httpd_initialize(
     else
 	{
 	/* Nuke any leading slashes. */
-	if ( cgi_pattern[0] == '/' )
+	if ( cgi_pattern[0] == '/' )/*去掉/*/
 	    ++cgi_pattern;
 	hs->cgi_pattern = strdup( cgi_pattern );
 	if ( hs->cgi_pattern == (char*) 0 )
@@ -291,7 +291,7 @@ httpd_initialize(
 	    return (httpd_server*) 0;
 	    }
 	/* Nuke any leading slashes in the cgi pattern. */
-	while ( ( cp = strstr( hs->cgi_pattern, "|/" ) ) != (char*) 0 )
+	while ( ( cp = strstr( hs->cgi_pattern, "|/" ) ) != (char*) 0 )/*去掉后续的/，以|分割*/
 	    (void) ol_strcpy( cp + 1, cp + 2 );
 	}
     hs->cgi_limit = cgi_limit;
@@ -329,7 +329,7 @@ httpd_initialize(
 	}
     hs->no_log = no_log;
     hs->logfp = (FILE*) 0;
-    httpd_set_logfp( hs, logfp );
+    httpd_set_logfp( hs, logfp );/*设置日志文件指针*/
     hs->no_symlink_check = no_symlink_check;
     hs->vhost = vhost;
     hs->global_passwd = global_passwd;
@@ -338,11 +338,11 @@ httpd_initialize(
     /* Initialize listen sockets.  Try v6 first because of a Linux peculiarity;
     ** like some other systems, it has magical v6 sockets that also listen for
     ** v4, but in Linux if you bind a v4 socket first then the v6 bind fails.
-    */
+    *//*v6的套接字还可以监听v4的套接字*/
     if ( sa6P == (httpd_sockaddr*) 0 )
 	hs->listen6_fd = -1;
     else
-	hs->listen6_fd = initialize_listen_socket( sa6P );
+	hs->listen6_fd = initialize_listen_socket( sa6P );/*初始化套接字*/
     if ( sa4P == (httpd_sockaddr*) 0 )
 	hs->listen4_fd = -1;
     else
@@ -350,14 +350,14 @@ httpd_initialize(
     /* If we didn't get any valid sockets, fail. */
     if ( hs->listen4_fd == -1 && hs->listen6_fd == -1 )
 	{
-	free_httpd_server( hs );
+	free_httpd_server( hs );/*使用strdup创建的需手动释放*/
 	return (httpd_server*) 0;
 	}
 
-    init_mime();
+    init_mime();/*初始化mime结构体数组*/
 
     /* Done initializing. */
-    if ( hs->binding_hostname == (char*) 0 )
+    if ( hs->binding_hostname == (char*) 0 )/*校验主机名*/
 	syslog(
 	    LOG_NOTICE, "%.80s starting on port %d", SERVER_SOFTWARE,
 	    (int) hs->port );
@@ -377,22 +377,23 @@ initialize_listen_socket( httpd_sockaddr* saP )
     int on, flags;
 
     /* Check sockaddr. */
-    if ( ! sockaddr_check( saP ) )
+    if ( ! sockaddr_check( saP ) )/*协议族只能接受v6或者v4*/
 	{
 	syslog( LOG_CRIT, "unknown sockaddr family on listen socket" );
 	return -1;
 	}
 
-    /* Create socket. */
-    listen_fd = socket( saP->sa.sa_family, SOCK_STREAM, 0 );
+    /* Create socket.*/
+    listen_fd = socket( saP->sa.sa_family, SOCK_STREAM, 0 );/*以TCP创建套接字*/
     if ( listen_fd < 0 )
 	{
 	syslog( LOG_CRIT, "socket %.80s - %m", httpd_ntoa( saP ) );
 	return -1;
 	}
-    (void) fcntl( listen_fd, F_SETFD, 1 );
+	/*设置close-on-exec标志，当执行exec后，该描述符关闭*/
+    (void) fcntl( listen_fd, F_SETFD, 1 ); 
 
-    /* Allow reuse of local addresses. */
+    /* Allow reuse of local addresses. SOL_SOCKET：通用套接字，重启允许使用同一个地址*/
     on = 1;
     if ( setsockopt(
 	     listen_fd, SOL_SOCKET, SO_REUSEADDR, (char*) &on,
@@ -400,7 +401,7 @@ initialize_listen_socket( httpd_sockaddr* saP )
 	syslog( LOG_CRIT, "setsockopt SO_REUSEADDR - %m" );
 
     /* Bind to it. */
-    if ( bind( listen_fd, &saP->sa, sockaddr_len( saP ) ) < 0 )
+    if ( bind( listen_fd, &saP->sa, sockaddr_len( saP ) ) < 0 )/*绑定地址*/
 	{
 	syslog(
 	    LOG_CRIT, "bind %.80s - %m", httpd_ntoa( saP ) );
@@ -409,14 +410,14 @@ initialize_listen_socket( httpd_sockaddr* saP )
 	}
 
     /* Set the listen file descriptor to no-delay / non-blocking mode. */
-    flags = fcntl( listen_fd, F_GETFL, 0 );
+    flags = fcntl( listen_fd, F_GETFL, 0 );/*拿到监听描述符的配置*/
     if ( flags == -1 )
 	{
 	syslog( LOG_CRIT, "fcntl F_GETFL - %m" );
 	(void) close( listen_fd );
 	return -1;
 	}
-    if ( fcntl( listen_fd, F_SETFL, flags | O_NDELAY ) < 0 )
+    if ( fcntl( listen_fd, F_SETFL, flags | O_NDELAY ) < 0 )/*配置非阻塞*/
 	{
 	syslog( LOG_CRIT, "fcntl O_NDELAY - %m" );
 	(void) close( listen_fd );
@@ -424,7 +425,7 @@ initialize_listen_socket( httpd_sockaddr* saP )
 	}
 
     /* Start a listen going. */
-    if ( listen( listen_fd, LISTEN_BACKLOG ) < 0 )
+    if ( listen( listen_fd, LISTEN_BACKLOG ) < 0 )/**/
 	{
 	syslog( LOG_CRIT, "listen - %m" );
 	(void) close( listen_fd );
@@ -432,7 +433,11 @@ initialize_listen_socket( httpd_sockaddr* saP )
 	}
 
     /* Use accept filtering, if available. */
-#ifdef SO_ACCEPTFILTER
+	/*server端内核忽略client发的ACK，而直接等待数据，
+	数据收到之后再唤醒serve（accept返回），
+	server醒来后就可以直接得到数据并处理。
+	这就是TCP_DEFER_ACCEPT的作用。*/
+#ifdef SO_ACCEPTFILTER     
     {
 #if ( __FreeBSD_version >= 411000 )
 #define ACCEPT_FILTER_NAME "httpready"
@@ -447,7 +452,7 @@ initialize_listen_socket( httpd_sockaddr* saP )
     }
 #endif /* SO_ACCEPTFILTER */
 
-    return listen_fd;
+    return listen_fd;/*返回监听文件描述符*/
     }
 
 
@@ -475,7 +480,7 @@ httpd_unlisten( httpd_server* hs )
     {
     if ( hs->listen4_fd != -1 )
 	{
-	(void) close( hs->listen4_fd );
+	(void) close( hs->listen4_fd );//关闭监听端口
 	hs->listen4_fd = -1;
 	}
     if ( hs->listen6_fd != -1 )
@@ -554,8 +559,8 @@ add_response( httpd_conn* hc, char* str )
     size_t len;
 
     len = strlen( str );
-    httpd_realloc_str( &hc->response, &hc->maxresponse, hc->responselen + len );
-    (void) memmove( &(hc->response[hc->responselen]), str, len );
+    httpd_realloc_str( &hc->response, &hc->maxresponse, hc->responselen + len );/*重新分配空间*/
+    (void) memmove( &(hc->response[hc->responselen]), str, len );/*拼接新内容，使用memove，速度快点*/
     hc->responselen += len;
     }
 
@@ -564,7 +569,7 @@ void
 httpd_write_response( httpd_conn* hc )
     {
     /* If we are in a sub-process, turn off no-delay mode. */
-    if ( sub_process )
+    if ( sub_process )//子进程关闭延迟开关
 	httpd_clear_ndelay( hc->conn_fd );
     /* Send the response, if necessary. */
     if ( hc->responselen > 0 )
@@ -600,7 +605,7 @@ httpd_clear_ndelay( int fd )
     flags = fcntl( fd, F_GETFL, 0 );
     if ( flags != -1 )
 	{
-	newflags = flags & ~ (int) O_NDELAY;
+	newflags = flags & ~ (int) O_NDELAY;//关闭延迟开关
 	if ( newflags != flags )
 	    (void) fcntl( fd, F_SETFL, newflags );
 	}
@@ -620,9 +625,9 @@ send_mime( httpd_conn* hc, int status, char* title, char* encodings, char* extra
     int partial_content;
     int s100;
 
-    hc->status = status;
-    hc->bytes_to_send = length;
-    if ( hc->mime_flag )
+    hc->status = status;/*连接状态字*/
+    hc->bytes_to_send = length;/*发送字节长，-1表示什么意思？*/
+    if ( hc->mime_flag )/*是否发送mime信息标志？*/
 	{
 	if ( status == 200 && hc->got_range &&
 	     ( hc->last_byte_index >= hc->first_byte_index ) &&
@@ -633,7 +638,7 @@ send_mime( httpd_conn* hc, int status, char* title, char* encodings, char* extra
 	    {
 	    partial_content = 1;
 	    hc->status = status = 206;
-	    title = ok206title;
+	    title = ok206title;/*客户端请求部分数据*/
 	    }
 	else
 	    {
@@ -644,32 +649,32 @@ send_mime( httpd_conn* hc, int status, char* title, char* encodings, char* extra
 	now = time( (time_t*) 0 );
 	if ( mod == (time_t) 0 )
 	    mod = now;
-	(void) strftime( nowbuf, sizeof(nowbuf), rfc1123fmt, gmtime( &now ) );
+	(void) strftime( nowbuf, sizeof(nowbuf), rfc1123fmt, gmtime( &now ) );/*将时间格式化为本地时间*/
 	(void) strftime( modbuf, sizeof(modbuf), rfc1123fmt, gmtime( &mod ) );
 	(void) my_snprintf(
 	    fixed_type, sizeof(fixed_type), type, hc->hs->charset );
 	(void) my_snprintf( buf, sizeof(buf),
 	    "%.20s %d %s\015\012Server: %s\015\012Content-Type: %s\015\012Date: %s\015\012Last-Modified: %s\015\012Accept-Ranges: bytes\015\012Connection: close\015\012",
 	    hc->protocol, status, title, EXPOSED_SERVER_SOFTWARE, fixed_type,
-	    nowbuf, modbuf );
+	    nowbuf, modbuf );/*拼接返回内容*/
 	add_response( hc, buf );
-	s100 = status / 100;
-	if ( s100 != 2 && s100 != 3 )
+	s100 = status / 100;/*得到状态码的第一个数字*/
+	if ( s100 != 2 && s100 != 3 )/*如果状态不是*/
 	    {
 	    (void) my_snprintf( buf, sizeof(buf),
-		"Cache-Control: no-cache,no-store\015\012" );
+		"Cache-Control: no-cache,no-store\015\012" );/*浏览器不缓存此信息，每次都需重新访问服务器*/
 	    add_response( hc, buf );
 	    }
 	if ( encodings[0] != '\0' )
 	    {
 	    (void) my_snprintf( buf, sizeof(buf),
-		"Content-Encoding: %s\015\012", encodings );
+		"Content-Encoding: %s\015\012", encodings );/*告知客户端文本内容的解码*/
 	    add_response( hc, buf );
 	    }
 	if ( partial_content )
 	    {
 	    (void) my_snprintf( buf, sizeof(buf),
-		"Content-Range: bytes %lld-%lld/%lld\015\012Content-Length: %lld\015\012",
+		"Content-Range: bytes %lld-%lld/%lld\015\012Content-Length: %lld\015\012",/*内容范围以及此部分内容长度*/
 		(long long) hc->first_byte_index,
 		(long long) hc->last_byte_index,
 		(long long) length,
@@ -679,10 +684,10 @@ send_mime( httpd_conn* hc, int status, char* title, char* encodings, char* extra
 	else if ( length >= 0 )
 	    {
 	    (void) my_snprintf( buf, sizeof(buf),
-		"Content-Length: %lld\015\012", (long long) length );
+		"Content-Length: %lld\015\012", (long long) length );/*整个内容的长度*/
 	    add_response( hc, buf );
 	    }
-	if ( hc->hs->p3p[0] != '\0' )
+	if ( hc->hs->p3p[0] != '\0' )/*在线隐私*/
 	    {
 	    (void) my_snprintf( buf, sizeof(buf), "P3P: %s\015\012", hc->hs->p3p );
 	    add_response( hc, buf );
@@ -694,36 +699,36 @@ send_mime( httpd_conn* hc, int status, char* title, char* encodings, char* extra
 		expbuf, sizeof(expbuf), rfc1123fmt, gmtime( &expires ) );
 	    (void) my_snprintf( buf, sizeof(buf),
 		"Cache-Control: max-age=%d\015\012Expires: %s\015\012",
-		hc->hs->max_age, expbuf );
+		hc->hs->max_age, expbuf );/*设置缓存存活时间*/
 	    add_response( hc, buf );
 	    }
 	if ( extraheads[0] != '\0' )
-	    add_response( hc, extraheads );
-	add_response( hc, "\015\012" );
+	    add_response( hc, extraheads );/*额外的头部信息*/
+	add_response( hc, "\015\012" );/*增加空行，以区分头部信息和内容*/
 	}
     }
 
 
 static int str_alloc_count = 0;
 static size_t str_alloc_size = 0;
-
+//传递指向指针的指针，才能使strP指向分配的空间，否则未改变*strP
 void
 httpd_realloc_str( char** strP, size_t* maxsizeP, size_t size )
-    {
+    {/*首次申请，不低于200*/
     if ( *maxsizeP == 0 )
 	{
 	*maxsizeP = MAX( 200, size + 100 );
 	*strP = NEW( char, *maxsizeP + 1 );
 	++str_alloc_count;
 	str_alloc_size += *maxsizeP;
-	}
+	}/*空间不够后重新申请，不低于双倍*/
     else if ( size > *maxsizeP )
 	{
 	str_alloc_size -= *maxsizeP;
 	*maxsizeP = MAX( *maxsizeP * 2, size * 5 / 4 );
 	*strP = RENEW( *strP, char, *maxsizeP + 1 );
 	str_alloc_size += *maxsizeP;
-	}
+	}/*空间够*/
     else
 	return;
     if ( *strP == (char*) 0 )
@@ -758,14 +763,14 @@ send_response( httpd_conn* hc, int status, char* title, char* extraheads, char* 
 \n\
     <h2>%d %s</h2>\n",
 	status, title, status, title );
-    add_response( hc, buf );
+    add_response( hc, buf );/*返回一个默认的状态页面*/
     defang( arg, defanged_arg, sizeof(defanged_arg) );
     (void) my_snprintf( buf, sizeof(buf), form, defanged_arg );
-    add_response( hc, buf );
-    if ( match( "**MSIE**", hc->useragent ) )
+    add_response( hc, buf );/*将form信息，arg信息添加到response*/
+    if ( match( "**MSIE**", hc->useragent ) )/*能否匹配到MISE*/
 	{
 	int n;
-	add_response( hc, "<!--\n" );
+	add_response( hc, "<!--\n" );/**/
 	for ( n = 0; n < 6; ++n )
 	    add_response( hc, "Padding so that MSIE deigns to show this error instead of its own canned one.\n");
 	add_response( hc, "-->\n" );
@@ -775,7 +780,7 @@ send_response( httpd_conn* hc, int status, char* title, char* extraheads, char* 
 
 
 static void
-send_response_tail( httpd_conn* hc )
+send_response_tail( httpd_conn* hc )/*软件主页和软件名称*/
     {
     char buf[1000];
 
@@ -793,7 +798,7 @@ send_response_tail( httpd_conn* hc )
 
 
 static void
-defang( char* str, char* dfstr, int dfsize )
+defang( char* str, char* dfstr, int dfsize )/*将大于号，小于号替换成&gt;&lt;*/
     {
     char* cp1;
     char* cp2;
@@ -828,22 +833,22 @@ defang( char* str, char* dfstr, int dfsize )
 void
 httpd_send_err( httpd_conn* hc, int status, char* title, char* extraheads, char* form, char* arg )
     {
-#ifdef ERR_DIR
+#ifdef ERR_DIR/*配置了错误页面目录*/
 
     char filename[1000];
 
     /* Try virtual host error page. */
-    if ( hc->hs->vhost && hc->hostdir[0] != '\0' )
+    if ( hc->hs->vhost && hc->hostdir[0] != '\0' )/*虚拟主机不为空*/
 	{
-	(void) my_snprintf( filename, sizeof(filename),
+	(void) my_snprintf( filename, sizeof(filename),/*拼接错误页面路径*/
 	    "%s/%s/err%d.html", hc->hostdir, ERR_DIR, status );
-	if ( send_err_file( hc, status, title, extraheads, filename ) )
+	if ( send_err_file( hc, status, title, extraheads, filename ) )/*将响应报文头部以及错误页面内容添加到response*/
 	    return;
 	}
 
     /* Try server-wide error page. */
     (void) my_snprintf( filename, sizeof(filename),
-	"%s/err%d.html", ERR_DIR, status );
+	"%s/err%d.html", ERR_DIR, status );/*没有虚拟主机的情况下，尝试返回其他错误页面*/
     if ( send_err_file( hc, status, title, extraheads, filename ) )
 	return;
 
@@ -866,7 +871,7 @@ send_err_file( httpd_conn* hc, int status, char* title, char* extraheads, char* 
     char buf[1000];
     size_t r;
 
-    fp = fopen( filename, "r" );
+    fp = fopen( filename, "r" );/*打开错误页面*/
     if ( fp == (FILE*) 0 )
 	return 0;
     send_mime(
@@ -874,7 +879,7 @@ send_err_file( httpd_conn* hc, int status, char* title, char* extraheads, char* 
 	(time_t) 0 );
     for (;;)
 	{
-	r = fread( buf, 1, sizeof(buf) - 1, fp );
+	r = fread( buf, 1, sizeof(buf) - 1, fp );/*读取错误页面信息，并加到response*/
 	if ( r == 0 )
 	    break;
 	buf[r] = '\0';
@@ -883,7 +888,7 @@ send_err_file( httpd_conn* hc, int status, char* title, char* extraheads, char* 
     (void) fclose( fp );
 
 #ifdef ERR_APPEND_SERVER_INFO
-    send_response_tail( hc );
+    send_response_tail( hc );/*添加软件地址和名称到reponse*/
 #endif /* ERR_APPEND_SERVER_INFO */
 
     return 1;
@@ -1669,7 +1674,7 @@ expand_symlinks( char* path, char** restP, int no_symlink_check, int tildemapped
 
 
 int
-httpd_get_conn( httpd_server* hs, int listen_fd, httpd_conn* hc )
+httpd_get_conn( httpd_server* hs, int listen_fd, httpd_conn* hc )//创建连接对象
     {
     httpd_sockaddr sa;
     socklen_t sz;
@@ -1677,7 +1682,7 @@ httpd_get_conn( httpd_server* hs, int listen_fd, httpd_conn* hc )
     if ( ! hc->initialized )
 	{
 	hc->read_size = 0;
-	httpd_realloc_str( &hc->read_buf, &hc->read_size, 500 );
+	httpd_realloc_str( &hc->read_buf, &hc->read_size, 500 );//空间分配函数，首次分配一定的空间，后续不够每次分配双倍，类似STL
 	hc->maxdecodedurl =
 	    hc->maxorigfilename = hc->maxexpnfilename = hc->maxencodings =
 	    hc->maxpathinfo = hc->maxquery = hc->maxaccept =
@@ -1706,29 +1711,29 @@ httpd_get_conn( httpd_server* hs, int listen_fd, httpd_conn* hc )
 
     /* Accept the new connection. */
     sz = sizeof(sa);
-    hc->conn_fd = accept( listen_fd, &sa.sa, &sz );
+    hc->conn_fd = accept( listen_fd, &sa.sa, &sz );//返回一个新的描述符
     if ( hc->conn_fd < 0 )
 	{
-	if ( errno == EWOULDBLOCK )
+	if ( errno == EWOULDBLOCK )//非阻塞没有数据？
 	    return GC_NO_MORE;
 	/* ECONNABORTED means the connection was closed by the client while
 	** it was waiting in the listen queue.  It's not worth logging.
 	*/
-	if ( errno != ECONNABORTED )
+	if ( errno != ECONNABORTED )//三次握手成功服务层接受之前客户取消连接
 	    syslog( LOG_ERR, "accept - %m" );
 	return GC_FAIL;
 	}
-    if ( ! sockaddr_check( &sa ) )
+    if ( ! sockaddr_check( &sa ) )//检查IPV4还是IPV6
 	{
 	syslog( LOG_ERR, "unknown sockaddr family" );
 	close( hc->conn_fd );
 	hc->conn_fd = -1;
 	return GC_FAIL;
 	}
-    (void) fcntl( hc->conn_fd, F_SETFD, 1 );
+    (void) fcntl( hc->conn_fd, F_SETFD, 1 );//在exec时关闭此描述符
     hc->hs = hs;
-    (void) memset( &hc->client_addr, 0, sizeof(hc->client_addr) );
-    (void) memmove( &hc->client_addr, &sa, sockaddr_len( &sa ) );
+    (void) memset( &hc->client_addr, 0, sizeof(hc->client_addr) );//初始化
+    (void) memmove( &hc->client_addr, &sa, sockaddr_len( &sa ) );//设置客户端地址
     hc->read_idx = 0;
     hc->checked_idx = 0;
     hc->checked_state = CHST_FIRSTWORD;
@@ -2460,14 +2465,14 @@ de_dotdot( char* file )
 void
 httpd_close_conn( httpd_conn* hc, struct timeval* nowP )
     {
-    make_log_entry( hc, nowP );
+    make_log_entry( hc, nowP );//记录日志
 
     if ( hc->file_address != (char*) 0 )
 	{
-	mmc_unmap( hc->file_address, &(hc->sb), nowP );
+	mmc_unmap( hc->file_address, &(hc->sb), nowP );//解除对文件的引用，设置解除引用时间，超过时间则彻底从内存中删除
 	hc->file_address = (char*) 0;
 	}
-    if ( hc->conn_fd >= 0 )
+    if ( hc->conn_fd >= 0 )//关闭描述符
 	{
 	(void) close( hc->conn_fd );
 	hc->conn_fd = -1;
@@ -2526,7 +2531,8 @@ ext_compare( const void* v1, const void* v2 )
     return strcmp( m1->ext, m2->ext );
     }
 
-
+/*设定某种扩展名的文件用一种应用程序来打开的方式类型，
+当该扩展名文件被访问的时候，浏览器会自动使用指定应用程序来打开*/
 static void
 init_mime( void )
     {
@@ -3023,10 +3029,10 @@ hostname_map( char* hostname )
     static char* list[] = { SERVER_NAME_LIST };
 
     len = strlen( hostname );
-    for ( n = sizeof(list) / sizeof(*list) - 1; n >= 0; --n )
-	if ( strncasecmp( hostname, list[n], len ) == 0 )
+    for ( n = sizeof(list) / sizeof(*list) - 1; n >= 0; --n )/*遍历整个服务名数组*/
+	if ( strncasecmp( hostname, list[n], len ) == 0 )/*如果有子字符串相同*/
 	    if ( list[n][len] == '/' )  /* check in case of a substring match */
-		return &list[n][len + 1];
+		return &list[n][len + 1];/*返回不同的那部分*/
     return (char*) 0;
     }
 #endif /* SERVER_NAME_LIST */
@@ -3964,7 +3970,7 @@ make_log_entry( httpd_conn* hc, struct timeval* nowP )
 	/* Format the time, forcing a numeric timezone (some log analyzers
 	** are stoooopid about this).
 	*/
-	t = localtime( &now );
+	t = localtime( &now );//转换成本地时间
 	(void) strftime( date_nozone, sizeof(date_nozone), cernfmt_nozone, t );
 #ifdef HAVE_TM_GMTOFF
 	zone = t->tm_gmtoff / 60L;
@@ -4251,7 +4257,7 @@ httpd_write_fully( int fd, const char* buf, size_t nbytes )
 	{
 	int r;
 
-	r = write( fd, buf + nwritten, nbytes - nwritten );
+	r = write( fd, buf + nwritten, nbytes - nwritten );//循环发送数据
 	if ( r < 0 && ( errno == EINTR || errno == EAGAIN ) )
 	    {
 	    sleep( 1 );
@@ -4270,7 +4276,7 @@ httpd_write_fully( int fd, const char* buf, size_t nbytes )
 
 /* Generate debugging statistics syslog message. */
 void
-httpd_logstats( long secs )
+httpd_logstats( long secs )//记录空间分配情况
     {
     if ( str_alloc_count > 0 )
 	syslog( LOG_NOTICE,

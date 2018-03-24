@@ -1,6 +1,6 @@
 /* fdwatch.c - fd watcher routines, either select() or poll()
 **
-** Copyright � 1999,2000 by Jef Poskanzer <jef@mail.acme.com>.
+** Copyright � 1999,2000 by Jef Poskanzer <jef@mail.acme.com>.
 ** All rights reserved.
 **
 ** Redistribution and use in source and binary forms, with or without
@@ -63,9 +63,9 @@
 #ifndef FD_SET
 #define NFDBITS         32
 #define FD_SETSIZE      32
-#define FD_SET(n, p)    ((p)->fds_bits[(n)/NFDBITS] |= (1 << ((n) % NFDBITS)))
-#define FD_CLR(n, p)    ((p)->fds_bits[(n)/NFDBITS] &= ~(1 << ((n) % NFDBITS)))
-#define FD_ISSET(n, p)  ((p)->fds_bits[(n)/NFDBITS] & (1 << ((n) % NFDBITS)))
+#define FD_SET(n, p)    ((p)->fds_bits[(n)/NFDBITS] |= (1 << ((n) % NFDBITS)))//每一位标志一个描述符是否设置
+#define FD_CLR(n, p)    ((p)->fds_bits[(n)/NFDBITS] &= ~(1 << ((n) % NFDBITS)))//清除标志位
+#define FD_ISSET(n, p)  ((p)->fds_bits[(n)/NFDBITS] & (1 << ((n) % NFDBITS)))//检查标志位
 #define FD_ZERO(p)      bzero((char*)(p), sizeof(*(p)))
 #endif /* !FD_SET */
 #endif /* HAVE_SELECT */
@@ -167,17 +167,17 @@ fdwatch_get_nfiles( void )
 #endif /* RLIMIT_NOFILE */
 
     /* Figure out how many fd's we can have. */
-    nfiles = getdtablesize();
+    nfiles = getdtablesize();/*进程所能打开的最大文件数*/
 #ifdef RLIMIT_NOFILE
     /* If we have getrlimit(), use that, and attempt to raise the limit. */
-    if ( getrlimit( RLIMIT_NOFILE, &rl ) == 0 )
+    if ( getrlimit( RLIMIT_NOFILE, &rl ) == 0 )/*进程所能打开的最大文件数*/
 	{
 	nfiles = rl.rlim_cur;
 	if ( rl.rlim_max == RLIM_INFINITY )
 	    rl.rlim_cur = 8192;         /* arbitrary */
 	else if ( rl.rlim_max > rl.rlim_cur )
 	    rl.rlim_cur = rl.rlim_max;
-	if ( setrlimit( RLIMIT_NOFILE, &rl ) == 0 )
+	if ( setrlimit( RLIMIT_NOFILE, &rl ) == 0 )/*尝试设置*/
 	    nfiles = rl.rlim_cur;
 	}
 #endif /* RLIMIT_NOFILE */
@@ -189,12 +189,12 @@ fdwatch_get_nfiles( void )
 
     /* Initialize the fdwatch data structures. */
     nwatches = 0;
-    fd_rw = (int*) malloc( sizeof(int) * nfiles );
-    fd_data = (void**) malloc( sizeof(void*) * nfiles );
+    fd_rw = (int*) malloc( sizeof(int) * nfiles );/*为每个文件描述符分配空间*/
+    fd_data = (void**) malloc( sizeof(void*) * nfiles );/*为每个文件描述符创建指向数据的指针空间*/
     if ( fd_rw == (int*) 0 || fd_data == (void**) 0 )
 	return -1;
     for ( i = 0; i < nfiles; ++i )
-	fd_rw[i] = -1;
+	fd_rw[i] = -1;/*初始化文件描述符数组为-1*/
     if ( INIT( nfiles ) == -1 )
 	return -1;
 
@@ -211,9 +211,9 @@ fdwatch_add_fd( int fd, void* client_data, int rw )
 	syslog( LOG_ERR, "bad fd (%d) passed to fdwatch_add_fd!", fd );
 	return;
 	}
-    ADD_FD( fd, rw );
-    fd_rw[fd] = rw;
-    fd_data[fd] = client_data;
+    ADD_FD( fd, rw );//添加到描述符集
+    fd_rw[fd] = rw;//记录是关注读还是写
+    fd_data[fd] = client_data;//存储连接数据
     }
 
 
@@ -239,7 +239,7 @@ int
 fdwatch( long timeout_msecs )
     {
     ++nwatches;
-    nreturned = WATCH( timeout_msecs );
+    nreturned = WATCH( timeout_msecs );//根据时间确定监控函数是立即返回还是等待一定时间
     next_ridx = 0;
     return nreturned;
     }
@@ -254,7 +254,7 @@ fdwatch_check_fd( int fd )
 	syslog( LOG_ERR, "bad fd (%d) passed to fdwatch_check_fd!", fd );
 	return 0;
 	}
-    return CHECK_FD( fd );
+    return CHECK_FD( fd );//检查描述符是否已添加
     }
 
 
@@ -274,7 +274,7 @@ fdwatch_get_next_client_data( void )
 
 /* Generate debugging statistics syslog message. */
 void
-fdwatch_logstats( long secs )
+fdwatch_logstats( long secs )//记录描述符情况
     {
     if ( secs > 0 )
 	syslog(
@@ -673,10 +673,10 @@ static fd_set master_wfdset;
 static fd_set working_rfdset;
 static fd_set working_wfdset;
 static int* select_fds;
-static int* select_fdidx;
-static int* select_rfdidx;
-static int nselect_fds;
-static int maxfd;
+static int* select_fdidx;/*描述符索引数组*/
+static int* select_rfdidx;/*就绪描述符*/
+static int nselect_fds;/*当前文件描述符个数*/
+static int maxfd;/*当前最大的描述符*/
 static int maxfd_changed;
 
 
@@ -705,7 +705,7 @@ select_init( int nf )
 static void
 select_add_fd( int fd, int rw )
     {
-    if ( nselect_fds >= nfiles )
+    if ( nselect_fds >= nfiles )/*文件描述符数不能超过限制*/
 	{
 	syslog( LOG_ERR, "too many fds in select_add_fd!" );
 	return;
@@ -713,13 +713,13 @@ select_add_fd( int fd, int rw )
     select_fds[nselect_fds] = fd;
     switch ( rw )
 	{
-	case FDW_READ: FD_SET( fd, &master_rfdset ); break;
+	case FDW_READ: FD_SET( fd, &master_rfdset ); break;/*根据读写将文件描述符加入到对应的描述符集中*/
 	case FDW_WRITE: FD_SET( fd, &master_wfdset ); break;
 	default: break;
 	}
-    if ( fd > maxfd )
+    if ( fd > maxfd )/*修改最大的文件描述符*/
 	maxfd = fd;
-    select_fdidx[fd] = nselect_fds;
+    select_fdidx[fd] = nselect_fds;/*文件描述符的索引*/
     ++nselect_fds;
     }
 
@@ -727,7 +727,7 @@ select_add_fd( int fd, int rw )
 static void
 select_del_fd( int fd )
     {
-    int idx = select_fdidx[fd];
+    int idx = select_fdidx[fd];/*取得文件描述符索引*/
 
     if ( idx < 0 || idx >= nfiles )
 	{
@@ -736,21 +736,21 @@ select_del_fd( int fd )
 	}
 
     --nselect_fds;
-    select_fds[idx] = select_fds[nselect_fds];
-    select_fdidx[select_fds[idx]] = idx;
-    select_fds[nselect_fds] = -1;
+    select_fds[idx] = select_fds[nselect_fds];/*将最后一个文件描述符替换到被删除的文件描述符位置*/
+    select_fdidx[select_fds[idx]] = idx;/*修改索引*/
+    select_fds[nselect_fds] = -1;/*将最后一个文件描述符置为初始化状态*/
     select_fdidx[fd] = -1;
 
-    FD_CLR( fd, &master_rfdset );
+    FD_CLR( fd, &master_rfdset );/*从描述符集中清除掉该描述符*/
     FD_CLR( fd, &master_wfdset );
 
-    if ( fd >= maxfd )
+    if ( fd >= maxfd )/*如果该描述符为最大描述符，置最大描述符修改标志为true*/
 	maxfd_changed = 1;
     }
 
 
 static int
-select_get_maxfd( void )
+select_get_maxfd( void )/*返回最大的文件描述符，如果修改标志为true，那么先搜寻最大的文件描述符，然后在返回*/
     {
     if ( maxfd_changed )
 	{
@@ -771,14 +771,14 @@ select_watch( long timeout_msecs )
     int mfd;
     int r, idx, ridx;
 
-    working_rfdset = master_rfdset;
-    working_wfdset = master_wfdset;
-    mfd = select_get_maxfd();
-    if ( timeout_msecs == INFTIM )
+    working_rfdset = master_rfdset;/*监听的读描述符集*/
+    working_wfdset = master_wfdset;/*监听的写描述符集*/
+    mfd = select_get_maxfd();/*得到当前最大的描述度，select函数需*/
+    if ( timeout_msecs == INFTIM )/*不等待，立即返回*/
        r = select(
            mfd + 1, &working_rfdset, &working_wfdset, (fd_set*) 0,
            (struct timeval*) 0 );
-    else
+    else/*等待一段时间*/
 	{
 	struct timeval timeout;
 	timeout.tv_sec = timeout_msecs / 1000L;
@@ -786,19 +786,19 @@ select_watch( long timeout_msecs )
 	r = select(
 	   mfd + 1, &working_rfdset, &working_wfdset, (fd_set*) 0, &timeout );
 	}
-    if ( r <= 0 )
+    if ( r <= 0 )/*超时为0，出错为-1*/
 	return r;
 
     ridx = 0;
-    for ( idx = 0; idx < nselect_fds; ++idx )
-	if ( select_check_fd( select_fds[idx] ) )
+    for ( idx = 0; idx < nselect_fds; ++idx )/*所有描述符轮询一遍*/
+	if ( select_check_fd( select_fds[idx] ) )/*就绪状态的描述符*/
 	    {
-	    select_rfdidx[ridx++] = select_fds[idx];
-	    if ( ridx == r )
+	    select_rfdidx[ridx++] = select_fds[idx];/*记录就绪状态的描述符索引*/
+	    if ( ridx == r )/*找到所有就绪描述符，跳出循环*/
 		break;
 	    }
 
-    return ridx;	/* should be equal to r */
+    return ridx;	/* should be equal to r */ /*返回就绪描述符个数*/
     }
 
 
@@ -807,7 +807,7 @@ select_check_fd( int fd )
     {
     switch ( fd_rw[fd] )
 	{
-	case FDW_READ: return FD_ISSET( fd, &working_rfdset );
+	case FDW_READ: return FD_ISSET( fd, &working_rfdset );/*检查描述符集中是否有该描述符*/
 	case FDW_WRITE: return FD_ISSET( fd, &working_wfdset );
 	default: return 0;
 	}
@@ -822,7 +822,7 @@ select_get_fd( int ridx )
 	syslog( LOG_ERR, "bad ridx (%d) in select_get_fd!", ridx );
 	return -1;
 	}
-    return select_rfdidx[ridx];
+    return select_rfdidx[ridx];/*根据索引返回就绪描述符*/
     }
 
 #   endif /* HAVE_SELECT */

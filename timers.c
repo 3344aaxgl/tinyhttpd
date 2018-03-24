@@ -1,6 +1,6 @@
 /* timers.c - simple timer routines
 **
-** Copyright � 1995,1998,2000,2014 by Jef Poskanzer <jef@mail.acme.com>.
+** Copyright � 1995,1998,2000,2014 by Jef Poskanzer <jef@mail.acme.com>.
 ** All rights reserved.
 **
 ** Redistribution and use in source and binary forms, with or without
@@ -65,13 +65,13 @@ l_add( Timer* t )
     Timer* t2prev;
 
     t2 = timers[h];
-    if ( t2 == (Timer*) 0 )
+    if ( t2 == (Timer*) 0 )/*当前位置为空*/
 	{
 	/* The list is empty. */
 	timers[h] = t;
-	t->prev = t->next = (Timer*) 0;
+	t->prev = t->next = (Timer*) 0;/*开链*/
 	}
-    else
+    else/*否则，按时间进行升序排序*/
 	{
 	if ( t->time.tv_sec < t2->time.tv_sec ||
 	     ( t->time.tv_sec == t2->time.tv_sec &&
@@ -102,7 +102,7 @@ l_add( Timer* t )
 		    }
 		}
 	    /* Oops, got to the end of the list.  Add to tail. */
-	    t2prev->next = t;
+	    t2prev->next = t;/*时间最大，排在最后*/
 	    t->prev = t2prev;
 	    t->next = (Timer*) 0;
 	    }
@@ -115,7 +115,7 @@ l_remove( Timer* t )
     {
     int h = t->hash;
 
-    if ( t->prev == (Timer*) 0 )
+    if ( t->prev == (Timer*) 0 )//链表第一个
 	timers[h] = t->next;
     else
 	t->prev->next = t->next;
@@ -155,7 +155,7 @@ tmr_create(
     {
     Timer* t;
 
-    if ( free_timers != (Timer*) 0 )
+    if ( free_timers != (Timer*) 0 )/*使用空闲Timer*/
 	{
 	t = free_timers;
 	free_timers = t->next;
@@ -163,13 +163,13 @@ tmr_create(
 	}
     else
 	{
-	t = (Timer*) malloc( sizeof(Timer) );
+	t = (Timer*) malloc( sizeof(Timer) );/*创建Timer*/
 	if ( t == (Timer*) 0 )
 	    return (Timer*) 0;
 	++alloc_count;
 	}
 
-    t->timer_proc = timer_proc;
+    t->timer_proc = timer_proc;/*函数指针*/
     t->client_data = client_data;
     t->msecs = msecs;
     t->periodic = periodic;
@@ -177,16 +177,16 @@ tmr_create(
 	t->time = *nowP;
     else
 	(void) gettimeofday( &t->time, (struct timezone*) 0 );
-    t->time.tv_sec += msecs / 1000L;
-    t->time.tv_usec += ( msecs % 1000L ) * 1000L;
-    if ( t->time.tv_usec >= 1000000L )
+    t->time.tv_sec += msecs / 1000L;/*当前时间加上秒的那部分*/
+    t->time.tv_usec += ( msecs % 1000L ) * 1000L;/*加上微秒*/
+    if ( t->time.tv_usec >= 1000000L )/*微秒部分超过1秒*/
 	{
 	t->time.tv_sec += t->time.tv_usec / 1000000L;
 	t->time.tv_usec %= 1000000L;
 	}
-    t->hash = hash( t );
+    t->hash = hash( t );/*得到hash值*/
     /* Add the new timer to the proper active list. */
-    l_add( t );
+    l_add( t );/*加入开链hash表*/
     ++active_count;
 
     return t;
@@ -194,7 +194,7 @@ tmr_create(
 
 
 struct timeval*
-tmr_timeout( struct timeval* nowP )
+tmr_timeout( struct timeval* nowP )//返回距离多少时间到最近的timer
     {
     long msecs;
     static struct timeval timeout;
@@ -209,7 +209,7 @@ tmr_timeout( struct timeval* nowP )
 
 
 long
-tmr_mstimeout( struct timeval* nowP )
+tmr_mstimeout( struct timeval* nowP )//找到距离当前时间最近的timer，并返回时间
     {
     int h;
     int gotone;
@@ -233,13 +233,13 @@ tmr_mstimeout( struct timeval* nowP )
 		msecs = m;
 		gotone = 1;
 		}
-	    else if ( m < msecs )
+	    else if ( m < msecs )//找到最近的
 		msecs = m;
 	    }
 	}
     if ( ! gotone )
 	return INFTIM;
-    if ( msecs <= 0 )
+    if ( msecs <= 0 )//超时返回0
 	msecs = 0;
     return msecs;
     }
@@ -252,7 +252,7 @@ tmr_run( struct timeval* nowP )
     Timer* t;
     Timer* next;
 
-    for ( h = 0; h < HASH_SIZE; ++h )
+    for ( h = 0; h < HASH_SIZE; ++h )//遍历hash表
 	for ( t = timers[h]; t != (Timer*) 0; t = next )
 	    {
 	    next = t->next;
@@ -261,10 +261,10 @@ tmr_run( struct timeval* nowP )
 	    */
 	    if ( t->time.tv_sec > nowP->tv_sec ||
 		 ( t->time.tv_sec == nowP->tv_sec &&
-		   t->time.tv_usec > nowP->tv_usec ) )
+		   t->time.tv_usec > nowP->tv_usec ) )//时间还未到，则意味着接下来的定时器都没到时间
 		break;
-	    (t->timer_proc)( t->client_data, nowP );
-	    if ( t->periodic )
+	    (t->timer_proc)( t->client_data, nowP );//执行定时器设定的函数
+	    if ( t->periodic )//重复执行，设置下次时间
 		{
 		/* Reschedule. */
 		t->time.tv_sec += t->msecs / 1000L;
@@ -274,10 +274,10 @@ tmr_run( struct timeval* nowP )
 		    t->time.tv_sec += t->time.tv_usec / 1000000L;
 		    t->time.tv_usec %= 1000000L;
 		    }
-		l_resort( t );
+		l_resort( t );//重新加入到hash表中
 		}
 	    else
-		tmr_cancel( t );
+		tmr_cancel( t );//不重复执行则取消掉
 	    }
     }
 
@@ -301,10 +301,10 @@ void
 tmr_cancel( Timer* t )
     {
     /* Remove it from its active list. */
-    l_remove( t );
+    l_remove( t );//从hash表中移除
     --active_count;
     /* And put it on the free list. */
-    t->next = free_timers;
+    t->next = free_timers;//放到未使用链表上，便于下次使用
     free_timers = t;
     ++free_count;
     t->prev = (Timer*) 0;
@@ -316,7 +316,7 @@ tmr_cleanup( void )
     {
     Timer* t;
 
-    while ( free_timers != (Timer*) 0 )
+    while ( free_timers != (Timer*) 0 )/*释放空闲时间结构体链表*/
 	{
 	t = free_timers;
 	free_timers = t->next;
@@ -341,7 +341,7 @@ tmr_term( void )
 
 /* Generate debugging statistics syslog message. */
 void
-tmr_logstats( long secs )
+tmr_logstats( long secs )//记录timer使用情况
     {
     syslog(
 	LOG_NOTICE, "  timers - %d allocated, %d active, %d free",

@@ -2,7 +2,7 @@
 **
 ** Only does ? * and **, and multiple patterns separated by |.  Returns 1 or 0.
 **
-** Copyright � 1995,2000 by Jef Poskanzer <jef@mail.acme.com>.
+** Copyright � 1995,2000 by Jef Poskanzer <jef@mail.acme.com>.
 ** All rights reserved.
 **
 ** Redistribution and use in source and binary forms, with or without
@@ -41,7 +41,7 @@ match( const char* pattern, const char* string )
 
     for (;;)
 	{
-	or = strchr( pattern, '|' );
+	or = strchr( pattern, '|' );/*是否以|做分隔符*/
 	if ( or == (char*) 0 )
 	    return match_one( pattern, strlen( pattern ), string );
 	if ( match_one( pattern, or - pattern, string ) )
@@ -55,7 +55,8 @@ static int
 match_one( const char* pattern, int patternlen, const char* string )
     {
     const char* p;
-
+    /*以当前指向的位置减去起始小于整个字符串的长度来判断是否遍历完
+	 比使用0来判断适用性好*/
     for ( p = pattern; p - pattern < patternlen; ++p, ++string )
 	{
 	if ( *p == '?' && *string != '\0' )
@@ -64,7 +65,7 @@ match_one( const char* pattern, int patternlen, const char* string )
 	    {
 	    int i, pl;
 	    ++p;
-	    if ( *p == '*' )
+	    if ( *p == '*' )/* 两个**匹配任何字符串 */
 		{
 		/* Double-wildcard matches anything. */
 		++p;
@@ -73,16 +74,16 @@ match_one( const char* pattern, int patternlen, const char* string )
 	    else
 		/* Single-wildcard matches anything but slash. */
 		i = strcspn( string, "/" );
-	    pl = patternlen - ( p - pattern );
+	    pl = patternlen - ( p - pattern );/* 除去* */
 	    for ( ; i >= 0; --i )
-		if ( match_one( p, pl, &(string[i]) ) )
+		if ( match_one( p, pl, &(string[i]) ) )/*递归进行判断*/
 		    return 1;
 	    return 0;
 	    }
 	if ( *p != *string )
 	    return 0;
 	}
-    if ( *string == '\0' )
+    if ( *string == '\0' )/*完全匹配*/
 	return 1;
     return 0;
     }

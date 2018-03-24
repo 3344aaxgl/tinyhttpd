@@ -1,6 +1,6 @@
 /* mmc.c - mmap cache
 **
-** Copyright � 1998,2001,2014 by Jef Poskanzer <jef@mail.acme.com>.
+** Copyright � 1998,2001,2014 by Jef Poskanzer <jef@mail.acme.com>.
 ** All rights reserved.
 **
 ** Redistribution and use in source and binary forms, with or without
@@ -90,7 +90,7 @@ typedef struct MapStruct {
     } Map;
 
 
-/* Globals. */
+/* Globals. *//*全局变量*/
 static Map* maps = (Map*) 0;
 static Map* free_maps = (Map*) 0;
 static int alloc_count = 0, map_count = 0, free_count = 0;
@@ -102,7 +102,7 @@ static off_t mapped_bytes = 0;
 
 
 
-/* Forwards. */
+/* Forwards. *//*前置声明*/
 static void panic( void );
 static void really_unmap( Map** mm );
 static int check_hash_size( void );
@@ -124,7 +124,7 @@ mmc_map( char* filename, struct stat* sbP, struct timeval* nowP )
 	sb = *sbP;
     else
 	{
-	if ( stat( filename, &sb ) != 0 )
+	if ( stat( filename, &sb ) != 0 )/*获取文件信息*/
 	    {
 	    syslog( LOG_ERR, "stat - %m" );
 	    return (void*) 0;
@@ -135,20 +135,20 @@ mmc_map( char* filename, struct stat* sbP, struct timeval* nowP )
     if ( nowP != (struct timeval*) 0 )
 	now = nowP->tv_sec;
     else
-	now = time( (time_t*) 0 );
+	now = time( (time_t*) 0 );/*获取时间*/
 
     /* See if we have it mapped already, via the hash table. */
-    if ( check_hash_size() < 0 )
+    if ( check_hash_size() < 0 )/*检测hash表空间够不够，不够进行扩大*/
 	{
 	syslog( LOG_ERR, "check_hash_size() failure" );
 	return (void*) 0;
 	}
-    m = find_hash( sb.st_ino, sb.st_dev, sb.st_size, sb.st_ctime );
-    if ( m != (Map*) 0 )
+    m = find_hash( sb.st_ino, sb.st_dev, sb.st_size, sb.st_ctime );/*进行查找*/
+    if ( m != (Map*) 0 )/*找到*/
 	{
 	/* Yep.  Just return the existing map */
-	++m->refcount;
-	m->reftime = now;
+	++m->refcount; /*引用次数+1*/
+	m->reftime = now;/*引用时间*/
 	return m->addr;
 	}
 
@@ -275,24 +275,24 @@ mmc_unmap( void* addr, struct stat* sbP, struct timeval* nowP )
     /* Find the Map entry for this address.  First try a hash. */
     if ( sbP != (struct stat*) 0 )
 	{
-	m = find_hash( sbP->st_ino, sbP->st_dev, sbP->st_size, sbP->st_ctime );
+	m = find_hash( sbP->st_ino, sbP->st_dev, sbP->st_size, sbP->st_ctime );//在hash中寻找
 	if ( m != (Map*) 0 && m->addr != addr )
 	    m = (Map*) 0;
 	}
     /* If that didn't work, try a full search. */
     if ( m == (Map*) 0 )
-	for ( m = maps; m != (Map*) 0; m = m->next )
+	for ( m = maps; m != (Map*) 0; m = m->next )//全局搜索
 	    if ( m->addr == addr )
 		break;
-    if ( m == (Map*) 0 )
+    if ( m == (Map*) 0 )//没有在map中找到
 	syslog( LOG_ERR, "mmc_unmap failed to find entry!" );
-    else if ( m->refcount <= 0 )
+    else if ( m->refcount <= 0 )//引用数不对
 	syslog( LOG_ERR, "mmc_unmap found zero or negative refcount!" );
     else
 	{
-	--m->refcount;
+	--m->refcount;//解除引用
 	if ( nowP != (struct timeval*) 0 )
-	    m->reftime = nowP->tv_sec;
+	    m->reftime = nowP->tv_sec;//记录引用解除时间，超过最大存活时间则删除
 	else
 	    m->reftime = time( (time_t*) 0 );
 	}
@@ -303,21 +303,21 @@ void
 mmc_cleanup( struct timeval* nowP )
     {
     time_t now;
-    Map** mm;
+    Map** mm;/*hash_table是一个Map**，开链hash表，数组中每个元素都是和Map指针*/
     Map* m;
 
     /* Get the current time, if necessary. */
     if ( nowP != (struct timeval*) 0 )
-	now = nowP->tv_sec;
+	now = nowP->tv_sec;/*取秒*/
     else
-	now = time( (time_t*) 0 );
+	now = time( (time_t*) 0 );/*取当前时间*/
 
     /* Really unmap any unreferenced entries older than the age limit. */
     for ( mm = &maps; *mm != (Map*) 0; )
 	{
 	m = *mm;
-	if ( m->refcount == 0 && now - m->reftime >= expire_age )
-	    really_unmap( mm );
+	if ( m->refcount == 0 && now - m->reftime >= expire_age )/*时间引用次数为0并且超过存活时间*/
+	    really_unmap( mm );/*每次从hash表中释放一个，并返回下一个*/
 	else
 	    mm = &(*mm)->next;
 	}
@@ -325,15 +325,15 @@ mmc_cleanup( struct timeval* nowP )
     /* Adjust the age limit if there are too many bytes mapped, or
     ** too many or too few files mapped.
     */
-    if ( mapped_bytes > DESIRED_MAX_MAPPED_BYTES )
+    if ( mapped_bytes > DESIRED_MAX_MAPPED_BYTES )/*映射空间超过最大内存映射值*/
+	expire_age = MAX( ( expire_age * 2 ) / 3, DEFAULT_EXPIRE_AGE / 10 );/*修改存活时间*/
+    else if ( map_count > DESIRED_MAX_MAPPED_FILES )/*映射文件数目过大*/
 	expire_age = MAX( ( expire_age * 2 ) / 3, DEFAULT_EXPIRE_AGE / 10 );
-    else if ( map_count > DESIRED_MAX_MAPPED_FILES )
-	expire_age = MAX( ( expire_age * 2 ) / 3, DEFAULT_EXPIRE_AGE / 10 );
-    else if ( map_count < DESIRED_MAX_MAPPED_FILES / 2 )
+    else if ( map_count < DESIRED_MAX_MAPPED_FILES / 2 )/*映射文件数据过少*/
 	expire_age = MIN( ( expire_age * 5 ) / 4, DEFAULT_EXPIRE_AGE * 3 );
 
     /* Really free excess blocks on the free list. */
-    while ( free_count > DESIRED_FREE_COUNT )
+    while ( free_count > DESIRED_FREE_COUNT )/*释放掉超过数量的map*/
 	{
 	m = free_maps;
 	free_maps = m->next;
@@ -372,25 +372,25 @@ really_unmap( Map** mm )
     m = *mm;
     if ( m->size != 0 )
 	{
-#ifdef HAVE_MMAP
+#ifdef HAVE_MMAP/*如果使用mmap分配的空间*/
 	if ( munmap( m->addr, m->size ) < 0 )
 	    syslog( LOG_ERR, "munmap - %m" );
 #else /* HAVE_MMAP */
-	free( (void*) m->addr );
+	free( (void*) m->addr );/*free释放*/
 #endif /* HAVE_MMAP */
 	}
     /* Update the total byte count. */
-    mapped_bytes -= m->size;
+    mapped_bytes -= m->size;/*更新分配空间大小*/
     /* And move the Map to the free list. */
-    *mm = m->next;
+    *mm = m->next;/*mm指向下一个*/
     --map_count;
-    m->next = free_maps;
+    m->next = free_maps;/*m指向空闲map*/
     free_maps = m;
-    ++free_count;
+    ++free_count;/*空闲数量+1*/
     /* This will sometimes break hash chains, but that's harmless; the
     ** unmapping code that searches the hash table knows to keep searching.
     */
-    hash_table[m->hash_idx] = (Map*) 0;
+    hash_table[m->hash_idx] = (Map*) 0;/*从hash表中删除*/
     }
 
 
@@ -420,13 +420,13 @@ check_hash_size( void )
     Map* m;
 
     /* Are we just starting out? */
-    if ( hash_table == (Map**) 0 )
+    if ( hash_table == (Map**) 0 )/*还没有创建hash_table*/
 	{
-	hash_size = INITIAL_HASH_SIZE;
+	hash_size = INITIAL_HASH_SIZE;/* 1024 */
 	hash_mask = hash_size - 1;
 	}
     /* Is it at least three times bigger than the number of entries? */
-    else if ( hash_size >= map_count * 3 )
+    else if ( hash_size >= map_count * 3 )/*如果hash表的大小是map的3倍以上*/
 	return 0;
     else
 	{
@@ -435,13 +435,13 @@ check_hash_size( void )
 	/* Double the hash size until it's big enough. */
 	do
 	    {
-	    hash_size = hash_size << 1;
+	    hash_size = hash_size << 1;/*变成两倍的大小，直到满足比map_count大6倍*/
 	    }
 	while ( hash_size < map_count * 6 );
 	hash_mask = hash_size - 1;
 	}
     /* Make the new table. */
-    hash_table = (Map**) malloc( hash_size * sizeof(Map*) );
+    hash_table = (Map**) malloc( hash_size * sizeof(Map*) );/*分配新的空间*/
     if ( hash_table == (Map**) 0 )
 	return -1;
     /* Clear it. */
@@ -449,7 +449,7 @@ check_hash_size( void )
 	hash_table[i] = (Map*) 0;
     /* And rehash all entries. */
     for ( m = maps; m != (Map*) 0; m = m->next )
-	if ( add_hash( m ) < 0 )
+	if ( add_hash( m ) < 0 )/*插入hash表*/
 	    return -1;
     return 0;
     }
@@ -461,17 +461,17 @@ add_hash( Map* m )
     unsigned int h, he, i;
 
     h = hash( m->ino, m->dev, m->size, m->ct );
-    he = ( h + hash_size - 1 ) & hash_mask;
+    he = ( h + hash_size - 1 ) & hash_mask;/*循环一圈*/
     for ( i = h; ; i = ( i + 1 ) & hash_mask )
 	{
 	if ( hash_table[i] == (Map*) 0 )
 	    {
 	    hash_table[i] = m;
 	    m->hash = h;
-	    m->hash_idx = i;
+	    m->hash_idx = i;/*记录下下标*/
 	    return 0;
 	    }
-	if ( i == he )
+	if ( i == he )/*没有未使用的*/
 	    break;
 	}
     return -1;
@@ -484,17 +484,17 @@ find_hash( ino_t ino, dev_t dev, off_t size, time_t ct )
     unsigned int h, he, i;
     Map* m;
 
-    h = hash( ino, dev, size, ct );
+    h = hash( ino, dev, size, ct );/*计算出值*/
     he = ( h + hash_size - 1 ) & hash_mask;
     for ( i = h; ; i = ( i + 1 ) & hash_mask )
 	{
 	m = hash_table[i];
-	if ( m == (Map*) 0 )
+	if ( m == (Map*) 0 )/*没有找到*/
 	    break;
 	if ( m->hash == h && m->ino == ino && m->dev == dev &&
 	     m->size == size && m->ct == ct )
-	    return m;
-	if ( i == he )
+	    return m;/*找到*/
+	if ( i == he )//找了一圈
 	    break;
 	}
     return (Map*) 0;
@@ -520,7 +520,7 @@ hash( ino_t ino, dev_t dev, off_t size, time_t ct )
 
 /* Generate debugging statistics syslog message. */
 void
-mmc_logstats( long secs )
+mmc_logstats( long secs )//记录文件映射到内存情况
     {
     syslog(
 	LOG_NOTICE, "  map cache - %d allocated, %d active (%lld bytes), %d free; hash size: %d; expire age: %lld",
