@@ -1,6 +1,6 @@
 /* tdate_parse - parse string dates into internal form, stripped-down version
 **
-** Copyright � 1995 by Jef Poskanzer <jef@mail.acme.com>.
+** Copyright � 1995 by Jef Poskanzer <jef@mail.acme.com>.
 ** All rights reserved.
 **
 ** Redistribution and use in source and binary forms, with or without
@@ -50,7 +50,7 @@ struct strlong {
 
 
 static void
-pound_case( char* str )
+pound_case( char* str )//转成小写
     {
     for ( ; *str != '\0'; ++str )
 	{
@@ -65,12 +65,12 @@ strlong_compare( const void* v1, const void* v2 )
     {
     const struct strlong* s1 = (const struct strlong*) v1;
     const struct strlong* s2 = (const struct strlong*) v2;
-    return strcmp( s1->s, s2->s );
+    return strcmp( s1->s, s2->s );//升序
     }
 
 
 static int
-strlong_search( char* str, struct strlong* tab, int n, long* lP )
+strlong_search( char* str, struct strlong* tab, int n, long* lP )//排好序之后进行二分查找
     {
     int i, h, l, r;
 
@@ -141,16 +141,16 @@ scan_mon( char* str_mon, long* tm_monP )
 	};
     static int sorted = 0;
 
-    if ( ! sorted )
+    if ( ! sorted )//第一次执行时按照字母排序
 	{
 	(void) qsort(
 	    mon_tab, sizeof(mon_tab)/sizeof(struct strlong),
 	    sizeof(struct strlong), strlong_compare );
 	sorted = 1;
 	}
-    pound_case( str_mon );
+    pound_case( str_mon );//月份转成小写
     return strlong_search(
-	str_mon, mon_tab, sizeof(mon_tab)/sizeof(struct strlong), tm_monP );
+	str_mon, mon_tab, sizeof(mon_tab)/sizeof(struct strlong), tm_monP );//转成数字
     }
 
 
@@ -163,7 +163,7 @@ is_leap( int year )
 
 /* Basically the same as mktime(). */
 static time_t
-tm_to_time( struct tm* tmP )
+tm_to_time( struct tm* tmP )//将时间转换为自1970年1月1日以来持续时间的秒数
     {
     time_t t;
     static int monthtab[12] = {
@@ -172,20 +172,20 @@ tm_to_time( struct tm* tmP )
     /* Years since epoch, converted to days. */
     t = ( tmP->tm_year - 70 ) * 365;
     /* Leap days for previous years - this will break in 2100! */
-    t += ( tmP->tm_year - 69 ) / 4;
+    t += ( tmP->tm_year - 69 ) / 4;//加上闰年多的一天
     /* Days for the beginning of this month. */
-    t += monthtab[tmP->tm_mon];
+    t += monthtab[tmP->tm_mon];//每月一开始已过的天数
     /* Leap day for this year. */
-    if ( tmP->tm_mon >= 2 && is_leap( tmP->tm_year + 1900 ) )
+    if ( tmP->tm_mon >= 2 && is_leap( tmP->tm_year + 1900 ) )//闰年二月加上1天
 	++t;
     /* Days since the beginning of this month. */
-    t += tmP->tm_mday - 1;	/* 1-based field */
+    t += tmP->tm_mday - 1;	/* 1-based field *///最后一天还没过完
     /* Hours, minutes, and seconds. */
     t = t * 24 + tmP->tm_hour;
     t = t * 60 + tmP->tm_min;
     t = t * 60 + tmP->tm_sec;
 
-    return t;
+    return t;//得到秒数
     }
 
 
@@ -215,7 +215,7 @@ tdate_parse( char* str )
     if ( sscanf( cp, "%d-%400[a-zA-Z]-%d %d:%d:%d GMT",
 		&tm_mday, str_mon, &tm_year, &tm_hour, &tm_min,
 		&tm_sec ) == 6 &&
-	    scan_mon( str_mon, &tm_mon ) )
+	    scan_mon( str_mon, &tm_mon ) )//利用sscanf函数进行模板匹配
 	{
 	tm.tm_mday = tm_mday;
 	tm.tm_mon = tm_mon;
@@ -322,7 +322,7 @@ tdate_parse( char* str )
     else if ( tm.tm_year < 70 )
 	tm.tm_year += 100;
 
-    t = tm_to_time( &tm );
+    t = tm_to_time( &tm );//得到秒数
 
     return t;
     }

@@ -2059,12 +2059,12 @@ httpd_parse_request( httpd_conn* hc )
 	httpd_realloc_str( &hc->query, &hc->maxquery, strlen( cp ) );
 	(void) strcpy( hc->query, cp );
 	/* Remove query from (decoded) origfilename. */
-	cp = strchr( hc->origfilename, '?' );
+	cp = strchr( hc->origfilename, '?' );//去除问号
 	if ( cp != (char*) 0 )
 	    *cp = '\0';
 	}
 
-    de_dotdot( hc->origfilename );
+    de_dotdot( hc->origfilename );//去除一些字符
     if ( hc->origfilename[0] == '/' ||
 	 ( hc->origfilename[0] == '.' && hc->origfilename[1] == '.' &&
 	   ( hc->origfilename[2] == '\0' || hc->origfilename[2] == '/' ) ) )
@@ -2076,29 +2076,29 @@ httpd_parse_request( httpd_conn* hc )
     if ( hc->mime_flag )
 	{
 	/* Read the MIME headers. */
-	while ( ( buf = bufgets( hc ) ) != (char*) 0 )
+	while ( ( buf = bufgets( hc ) ) != (char*) 0 )//解析请求头
 	    {
 	    if ( buf[0] == '\0' )
 		break;
-	    if ( strncasecmp( buf, "Referer:", 8 ) == 0 )
+	    if ( strncasecmp( buf, "Referer:", 8 ) == 0 )//包含一个URL，用户从该URL代表的页面出发访问当前请求的页面
 		{
 		cp = &buf[8];
 		cp += strspn( cp, " \t" );
 		hc->referrer = cp;
 		}
-	    else if ( strncasecmp( buf, "Referrer:", 9 ) == 0 )
+	    else if ( strncasecmp( buf, "Referrer:", 9 ) == 0 )//同Referer
 		{
 		cp = &buf[9];
 		cp += strspn( cp, " \t" );
 		hc->referrer = cp;
 		}
-	    else if ( strncasecmp( buf, "User-Agent:", 11 ) == 0 )
+	    else if ( strncasecmp( buf, "User-Agent:", 11 ) == 0 )//浏览器类型
 		{
 		cp = &buf[11];
 		cp += strspn( cp, " \t" );
 		hc->useragent = cp;
 		}
-	    else if ( strncasecmp( buf, "Host:", 5 ) == 0 )
+	    else if ( strncasecmp( buf, "Host:", 5 ) == 0 )//初始URL中的主机和端口
 		{
 		cp = &buf[5];
 		cp += strspn( cp, " \t" );
@@ -2112,7 +2112,7 @@ httpd_parse_request( httpd_conn* hc )
 		    return -1;
 		    }
 		}
-	    else if ( strncasecmp( buf, "Accept:", 7 ) == 0 )
+	    else if ( strncasecmp( buf, "Accept:", 7 ) == 0 )//浏览器可接受的MIME类型
 		{
 		cp = &buf[7];
 		cp += strspn( cp, " \t" );
@@ -2127,15 +2127,15 @@ httpd_parse_request( httpd_conn* hc )
 			}
 		    httpd_realloc_str(
 			&hc->accept, &hc->maxaccept,
-			strlen( hc->accept ) + 2 + strlen( cp ) );
-		    (void) strcat( hc->accept, ", " );
+			strlen( hc->accept ) + 2 + strlen( cp ) );//分配空间
+		    (void) strcat( hc->accept, ", " );//拼接MIME
 		    }
 		else
 		    httpd_realloc_str(
 			&hc->accept, &hc->maxaccept, strlen( cp ) );
-		(void) strcat( hc->accept, cp );
+		(void) strcat( hc->accept, cp );//第一次
 		}
-	    else if ( strncasecmp( buf, "Accept-Encoding:", 16 ) == 0 )
+	    else if ( strncasecmp( buf, "Accept-Encoding:", 16 ) == 0 )//浏览器能够进行解码的数据编码方式
 		{
 		cp = &buf[16];
 		cp += strspn( cp, " \t" );
@@ -2158,43 +2158,43 @@ httpd_parse_request( httpd_conn* hc )
 			&hc->accepte, &hc->maxaccepte, strlen( cp ) );
 		(void) strcpy( hc->accepte, cp );
 		}
-	    else if ( strncasecmp( buf, "Accept-Language:", 16 ) == 0 )
+	    else if ( strncasecmp( buf, "Accept-Language:", 16 ) == 0 )//浏览器所希望的语言种类
 		{
 		cp = &buf[16];
 		cp += strspn( cp, " \t" );
 		hc->acceptl = cp;
 		}
-	    else if ( strncasecmp( buf, "If-Modified-Since:", 18 ) == 0 )
+	    else if ( strncasecmp( buf, "If-Modified-Since:", 18 ) == 0 )//只有当所请求的内容在指定的日期之后又经过修改才返回它，否则返回304“Not Modified”应答。 
 		{
 		cp = &buf[18];
-		hc->if_modified_since = tdate_parse( cp );
+		hc->if_modified_since = tdate_parse( cp );//从19700101开始的秒数
 		if ( hc->if_modified_since == (time_t) -1 )
 		    syslog( LOG_DEBUG, "unparsable time: %.80s", cp );
 		}
-	    else if ( strncasecmp( buf, "Cookie:", 7 ) == 0 )
+	    else if ( strncasecmp( buf, "Cookie:", 7 ) == 0 )//存储一些用户信息以便让服务器辨别用户身份的
 		{
 		cp = &buf[7];
 		cp += strspn( cp, " \t" );
 		hc->cookie = cp;
 		}
-	    else if ( strncasecmp( buf, "Range:", 6 ) == 0 )
+	    else if ( strncasecmp( buf, "Range:", 6 ) == 0 )//请求资源的部分内容 eg:Range: bytes=40-100 ：第40个字节到第100个字节之间的数据  
 		{
 		/* Only support %d- and %d-%d, not %d-%d,%d-%d or -%d. */
-		if ( strchr( buf, ',' ) == (char*) 0 )
+		if ( strchr( buf, ',' ) == (char*) 0 )//不能有,
 		    {
 		    char* cp_dash;
-		    cp = strpbrk( buf, "=" );
+		    cp = strpbrk( buf, "=" );//找到=
 		    if ( cp != (char*) 0 )
 			{
-			cp_dash = strchr( cp + 1, '-' );
+			cp_dash = strchr( cp + 1, '-' );//找到-
 			if ( cp_dash != (char*) 0 && cp_dash != cp + 1 )
 			    {
 			    *cp_dash = '\0';
 			    hc->got_range = 1;
-			    hc->first_byte_index = atoll( cp + 1 );
+			    hc->first_byte_index = atoll( cp + 1 );//得到请求资源的部分内容的起始字节数
 			    if ( hc->first_byte_index < 0 )
 				hc->first_byte_index = 0;
-			    if ( isdigit( (int) cp_dash[1] ) )
+			    if ( isdigit( (int) cp_dash[1] ) )//得到请求资源的部分内容的结束字节数
 				{
 				hc->last_byte_index = atoll( cp_dash + 1 );
 				if ( hc->last_byte_index < 0 )
@@ -2205,31 +2205,31 @@ httpd_parse_request( httpd_conn* hc )
 		    }
 		}
 	    else if ( strncasecmp( buf, "Range-If:", 9 ) == 0 ||
-		      strncasecmp( buf, "If-Range:", 9 ) == 0 )
+		      strncasecmp( buf, "If-Range:", 9 ) == 0 )//浏览器告诉 WEB 服务器，如果我请求的对象没有改变，就把我缺少的部分给我，如果对象改变了，就把整个对象给我，配合range使用
 		{
 		cp = &buf[9];
-		hc->range_if = tdate_parse( cp );
+		hc->range_if = tdate_parse( cp );//转化时间
 		if ( hc->range_if == (time_t) -1 )
 		    syslog( LOG_DEBUG, "unparsable time: %.80s", cp );
 		}
-	    else if ( strncasecmp( buf, "Content-Type:", 13 ) == 0 )
+	    else if ( strncasecmp( buf, "Content-Type:", 13 ) == 0 )//具体请求中的媒体类型信息
 		{
 		cp = &buf[13];
 		cp += strspn( cp, " \t" );
 		hc->contenttype = cp;
 		}
-	    else if ( strncasecmp( buf, "Content-Length:", 15 ) == 0 )
+	    else if ( strncasecmp( buf, "Content-Length:", 15 ) == 0 )//请求的内容长度
 		{
 		cp = &buf[15];
 		hc->contentlength = atol( cp );
 		}
-	    else if ( strncasecmp( buf, "Authorization:", 14 ) == 0 )
+	    else if ( strncasecmp( buf, "Authorization:", 14 ) == 0 )//HTTP授权的授权证书
 		{
 		cp = &buf[14];
 		cp += strspn( cp, " \t" );
 		hc->authorization = cp;
 		}
-	    else if ( strncasecmp( buf, "Connection:", 11 ) == 0 )
+	    else if ( strncasecmp( buf, "Connection:", 11 ) == 0 )//表示是否需要持久连接
 		{
 		cp = &buf[11];
 		cp += strspn( cp, " \t" );
@@ -2273,7 +2273,7 @@ httpd_parse_request( httpd_conn* hc )
 	    }
 	}
 
-    if ( hc->one_one )
+    if ( hc->one_one )//HTTP/1.1
 	{
 	/* Check that HTTP/1.1 requests specify a host, as required. */
 	if ( hc->reqhost[0] == '\0' && hc->hdrhost[0] == '\0' )
@@ -2288,7 +2288,7 @@ httpd_parse_request( httpd_conn* hc )
 	** might be unread pipelined requests waiting.  So, we have to
 	** do a lingering close.
 	*/
-	if ( hc->keep_alive )
+	if ( hc->keep_alive )//不支持长连接，所以等待一段时间在关闭
 	    hc->should_linger = 1;
 	}
 
@@ -2423,7 +2423,7 @@ de_dotdot( char* file )
     int l;
 
     /* Collapse any multiple / sequences. */
-    while ( ( cp = strstr( file, "//") ) != (char*) 0 )
+    while ( ( cp = strstr( file, "//") ) != (char*) 0 )//去除多余的/
 	{
 	for ( cp2 = cp + 2; *cp2 == '/'; ++cp2 )
 	    continue;
@@ -2431,7 +2431,7 @@ de_dotdot( char* file )
 	}
 
     /* Remove leading ./ and any /./ sequences. */
-    while ( strncmp( file, "./", 2 ) == 0 )
+    while ( strncmp( file, "./", 2 ) == 0 )//去除./
 	(void) ol_strcpy( file, file + 2 );
     while ( ( cp = strstr( file, "/./") ) != (char*) 0 )
 	(void) ol_strcpy( cp, cp + 2 );
@@ -2439,19 +2439,19 @@ de_dotdot( char* file )
     /* Alternate between removing leading ../ and removing xxx/../ */
     for (;;)
 	{
-	while ( strncmp( file, "../", 3 ) == 0 )
+	while ( strncmp( file, "../", 3 ) == 0 )//去除../
 	    (void) ol_strcpy( file, file + 3 );
 	cp = strstr( file, "/../" );
 	if ( cp == (char*) 0 )
 	    break;
-	for ( cp2 = cp - 1; cp2 >= file && *cp2 != '/'; --cp2 )
+	for ( cp2 = cp - 1; cp2 >= file && *cp2 != '/'; --cp2 )//去除xxx/../
 	    continue;
 	(void) ol_strcpy( cp2 + 1, cp + 4 );
 	}
 
     /* Also elide any xxx/.. at the end. */
     while ( ( l = strlen( file ) ) > 3 &&
-	    strcmp( ( cp = file + l - 3 ), "/.." ) == 0 )
+	    strcmp( ( cp = file + l - 3 ), "/.." ) == 0 )//去除最后的xxx/..
 	{
 	for ( cp2 = cp - 1; cp2 >= file && *cp2 != '/'; --cp2 )
 	    continue;
@@ -4199,7 +4199,7 @@ atoll( const char* str )
     long long value;
     long long sign;
 
-    while ( isspace( *str ) )
+    while ( isspace( *str ) )//跳过空格
 	++str;
     switch ( *str )
 	{
@@ -4208,12 +4208,12 @@ atoll( const char* str )
 	default: sign = 1; break;
 	}
     value = 0;
-    while ( isdigit( *str ) )
+    while ( isdigit( *str ) )//转成数字
 	{
 	value = value * 10 + ( *str - '0' );
 	++str;
 	}
-    return sign * value;
+    return sign * value;//确定正负
     }
 #endif /* HAVE_ATOLL */
 
